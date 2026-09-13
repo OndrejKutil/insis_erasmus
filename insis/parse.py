@@ -124,12 +124,6 @@ def find_table(soup, needed: set[str]):
     return None
 
 
-def find_tables(soup, needed: set[str]) -> list:
-    """Every table whose header row contains all of `needed`."""
-    return [tb for tb in soup.find_all("table")
-            if needed <= set(headers(tb))]
-
-
 def index_map(heads: list[str], wanted: dict[str, str]) -> dict[str, int]:
     """{'country': 'Země'} -> {'country': 2}. Missing columns are absent."""
     out = {}
@@ -231,57 +225,6 @@ def submit_button(html: str, needle: str = "") -> dict[str, str]:
             if inp.get("name"):
                 return {inp["name"]: inp.get("value", "")}
     return {}
-
-
-def find_links(html: str, base: str, needle: str) -> list[tuple[str, str]]:
-    """
-    Every (label, absolute-url) whose href contains `needle`, de-duplicated.
-
-    Resolved against `base`, which must be the URL the page came from - InSIS
-    hrefs are relative and joining them onto the site root drops '/auth/'.
-    """
-    soup = BeautifulSoup(html, "html.parser")
-    seen, out = set(), []
-    for a in soup.find_all("a", href=True):
-        if needle not in a["href"]:
-            continue
-        url = urljoin(base, a["href"])
-        if url in seen:
-            continue
-        seen.add(url)
-        out.append((_text(a) or url, url))
-    return out
-
-
-# Every InSIS page carries the same furniture: a language switcher that links
-# to the current page again, a logout, a help link, the document store. None
-# of it leads anywhere a reader of reports wants to go.
-_FURNITURE = re.compile(
-    r"(logout|help|nove_dok|prihlaseni|index)\.pl|[?;]lang=|^mailto:|^javascript:",
-    re.I)
-
-
-def candidate_links(html: str, base: str,
-                    seen: set[str] = frozenset()) -> list[tuple[str, str]]:
-    """
-    Links on a result page that plausibly lead to something new.
-
-    Used to explore a page whose layout we have not learned yet: the result
-    list is reached by submitting a form, so there is no second chance to look
-    at it without another login. Dropping the site furniture and everything
-    the previous page already linked to leaves the rows themselves.
-    """
-    out, dropped = [], set(seen)
-    for a in BeautifulSoup(html, "html.parser").find_all("a", href=True):
-        href = a["href"].strip()
-        if not href or href.startswith("#") or _FURNITURE.search(href):
-            continue
-        url = urljoin(base, href)
-        if url in dropped or url.split("#")[0] == base.split("#")[0]:
-            continue
-        dropped.add(url)
-        out.append((_text(a) or url, url))
-    return out
 
 
 # Fields that carry login state and must never be mistaken for the code box.
@@ -590,82 +533,3 @@ def parse_report(html: str, report_id: str = "", akce: int = 1) -> Report:
         section.items.append(QA(question=question, answer=_text(cells[1])))
 
     return report
-
-
-# -- learning an unfamiliar page ---------------------------------------------
-
-def describe(html: str, url: str = BASE) -> dict:
-    """
-    A structural summary of a page: forms, selects, tables and link shapes.
-
-    Written for capture.py, which snapshots a page we have not taught the
-    parser yet. Recollections of what an InSIS page looks like have been wrong
-    more than once, so the workflow is: capture, read the summary, then write
-    the parser against the saved file.
-    """
-    soup = BeautifulSoup(html, "html.parser")
-
-    forms = []
-    for form in soup.find_all("form"):
-        inputs = []
-        for inp in form.find_all("input"):
-            inputs.append({
-                "name": inp.get("name", ""),
-                "type": (inp.get("type") or "text").lower(),
-                "value": (inp.get("value", "") or "")[:60],
-            })
-        selects = []
-        for sel in form.find_all("select"):
-            options = [{"value": o.get("value", ""), "label": _text(o)}
-                       for o in sel.find_all("option")]
-            selects.append({
-                "name": sel.get("name", ""),
-                "option_count": len(options),
-                "options": options[:15],
-            })
-        forms.append({
-            "method": (form.get("method") or "get").lower(),
-            "action": urljoin(url, form.get("action") or ""),
-            "inputs": inputs,
-            "selects": selects,
-        })
-
-    tables = []
-    for table in soup.find_all("table"):
-        rows = table.find_all("tr")
-        heads = headers(table)
-        sample = []
-        for row in rows[1:4]:
-            sample.append([_text(c) for c in row.find_all(["td", "th"])])
-        tables.append({
-            "headers": heads,
-            "row_count": len(rows),
-            "sample_rows": sample,
-        })
-
-    # Group links by the script they point at: on an InSIS index page the
-    # interesting structure is 'which .pl does this page lead to', not the
-    # several hundred individual hrefs.
-    scripts: dict[str, dict] = {}
-    for a in soup.find_all("a", href=True):
-        full = urljoin(url, a["href"])
-        script = urlsplit(full).path.rsplit("/", 1)[-1]
-        entry = scripts.setdefault(
-            script, {"count": 0, "params": set(), "examples": []})
-        entry["count"] += 1
-        entry["params"].update(query_params(full))
-        if len(entry["examples"]) < 3:
-            entry["examples"].append({"label": _text(a)[:80], "url": full})
-
-    return {
-        "url": url,
-        "title": page_title(html),
-        "forms": forms,
-        "tables": tables,
-        "links": {
-            name: {"count": v["count"], "params": sorted(v["params"]),
-                   "examples": v["examples"]}
-            for name, v in sorted(
-                scripts.items(), key=lambda kv: -kv[1]["count"])
-        },
-    }

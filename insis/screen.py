@@ -63,10 +63,6 @@ def size() -> tuple[int, int]:
     return max(60, min(cols, 200)), max(16, rows)
 
 
-def width() -> int:
-    return size()[0]
-
-
 def supported() -> bool:
     try:
         return sys.stdout.isatty()
@@ -100,12 +96,6 @@ def clear() -> None:
     if supported():
         sys.stdout.write(CLEAR + HOME)
     sys.stdout.flush()
-
-
-def show_cursor(on: bool) -> None:
-    if supported():
-        sys.stdout.write(CURSOR_ON if on else CURSOR_OFF)
-        sys.stdout.flush()
 
 
 # --- text helpers ----------------------------------------------------------
@@ -208,22 +198,3 @@ def render(title: str, body: list[str], footer: list[str] = None,
 
     sys.stdout.write("\n".join(out))
     sys.stdout.flush()
-
-
-def prompt_line(label: str, hidden: bool = False) -> str:
-    """
-    Ask for free text at the bottom of the screen.
-
-    Single keypresses are wrong for a topic name or a password, so the cursor
-    comes back and a normal line editor runs; the caller redraws afterwards.
-    """
-    show_cursor(True)
-    try:
-        if hidden:
-            import getpass
-            return getpass.getpass(f"  {label}: ").strip()
-        return input(f"  {label}: ").strip()
-    except (EOFError, KeyboardInterrupt):
-        return ""
-    finally:
-        show_cursor(False)

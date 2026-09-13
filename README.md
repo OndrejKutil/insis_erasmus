@@ -215,7 +215,7 @@ This reads a university system with your own credentials, at a human-ish rate,
 for pages you are already entitled to open. Treat it accordingly.
 
 
-### Layout
+## Layout
 
 ```
 main.py         entry point

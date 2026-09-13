@@ -21,7 +21,7 @@ import re
 from dataclasses import asdict
 from pathlib import Path
 
-from .models import QA, Report, Section, Stay
+from .models import Report, Stay
 
 ROOT = Path(__file__).resolve().parent.parent / "data"
 
@@ -108,25 +108,6 @@ class Store:
         known = set(Stay.__dataclass_fields__)
         return [Stay(**{k: v for k, v in row.items() if k in known})
                 for row in raw if isinstance(row, dict)]
-
-    def load_report(self, stay: Stay) -> Report | None:
-        path = self.json_path(stay)
-        if not path.exists():
-            return None
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return None
-        sections = [
-            Section(title=s.get("title", ""),
-                    items=[QA(question=i.get("question", ""),
-                              answer=i.get("answer", ""))
-                           for i in s.get("items", [])])
-            for s in raw.get("sections", [])
-        ]
-        known = set(Report.__dataclass_fields__) - {"sections"}
-        return Report(sections=sections,
-                      **{k: v for k, v in raw.items() if k in known})
 
 
 def to_markdown(stay: Stay, report: Report) -> str:
