@@ -1,0 +1,28 @@
+# --- things that identify you or other people ----------------------------
+# Saved InSIS pages: your name and study id, plus other students' reports.
+captures/
+insis_erasmus_state.json
+reports.json
+
+# Downloaded reports: other students' words, in bulk.
+data/
+reports/
+
+# Local development notes, kept out of the published repo.
+CLAUDE.md
+
+# --- environment ---------------------------------------------------------
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- editors / OS --------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.log

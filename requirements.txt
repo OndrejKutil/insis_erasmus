@@ -1,0 +1,4 @@
+# Runtime dependencies, for the pip + venv route.
+# The uv route reads pyproject.toml instead; keep the two in step.
+requests>=2.34.2
+beautifulsoup4>=4.15.0
